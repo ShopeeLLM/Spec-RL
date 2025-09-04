@@ -21,12 +21,14 @@ This trainer supports model-agonistic model initialization with huggingface
 import json
 import os
 import uuid
-from collections import defaultdict
+from collections import defaultdict, deque
 from copy import deepcopy
 from dataclasses import dataclass, field
 from enum import Enum
 from pprint import pprint
-from typing import Optional
+from typing import Optional, List, Dict, Any
+from pathlib import Path
+import glob, re, os
 
 import numpy as np
 import ray
@@ -61,8 +63,140 @@ from verl.utils.seqlen_balancing import get_seqlen_balanced_partitions, log_seql
 from verl.utils.torch_functional import masked_mean
 from verl.utils.tracking import ValidationGenerationsLogger
 
+from verl.utils.speculative_decoding import spec_cut, spec_cut_with_knobs, rand_reuse_cut, rand_reuse_all_cut
+
 WorkerType = type[Worker]
 
+def build_ctx_no_loop(p_ids, p_msk, p_pos,
+                      response_ids,          # [N, R]
+                      cut_idx,               # [N]
+                      pad_id: int):
+    # convention: p_ids/msk/pos shape are [N, P] (sub-batch of idx_need from gen_batch)
+    N, P = p_ids.shape
+    R    = response_ids.shape[1]
+    k_vec = cut_idx.clamp(min=0, max=R)          # [N]
+    max_k = int(k_vec.max().item()) if N > 0 else 0
+    ctx_len = P + max_k
+
+    # calculate actual length of each prompt (right-aligned non-pad segment)
+    Lp = p_msk.sum(dim=1)                         # [N]
+    start = ctx_len - (Lp + k_vec)                # [N] length of left pad
+
+    # prepare column index [ctx_len]
+    col = torch.arange(ctx_len, device=p_ids.device).unsqueeze(0)   # [1, ctx_len]
+    start_ = start.unsqueeze(1)                                     # [N,1]
+    Lp_    = Lp.unsqueeze(1)
+    k_     = k_vec.unsqueeze(1)
+
+    # 1) boolean mask and source column for prompt segment
+    prom_mask = (col >= start_) & (col < start_ + Lp_)              # [N, ctx_len]
+    # map columns of ctx back to columns of p_ids: right-aligned with Lp
+    src_prom_col = (P - Lp_ ) + (col - start_)                      # [N, ctx_len]
+    src_prom_col = src_prom_col.clamp(0, P-1)
+
+    # 2) boolean mask and source column for prefix segment
+    pref_mask = (col >= start_ + Lp_) & (col < start_ + Lp_ + k_)   # [N, ctx_len]
+    # first cut old responses of each row to max_k, for gather
+    resp_cut = response_ids[:, :max_k]                              # [N, max_k]
+    src_pref_col = (col - (start_ + Lp_)).clamp(0, max_k-1)         # [N, ctx_len]
+
+    # 3) assemble ctx_ids (default full pad, then fill two segments with where)
+    ctx_ids = torch.full((N, ctx_len), pad_id, dtype=p_ids.dtype, device=p_ids.device)
+    # prompt segment from the tail of p_ids
+    prom_vals = torch.gather(p_ids, 1, src_prom_col)                # [N, ctx_len]
+    ctx_ids = torch.where(prom_mask, prom_vals, ctx_ids)
+    # prefix segment from response prefix
+    pref_vals = torch.gather(resp_cut, 1, src_pref_col)             # [N, ctx_len]
+    ctx_ids = torch.where(pref_mask, pref_vals, ctx_ids)
+
+    # 4) attention_mask
+    ctx_msk = (prom_mask | pref_mask).to(p_msk.dtype)               # [N, ctx_len]
+
+    # 5) position_ids (prompt segment copy original position, prefix segment increment)
+    ctx_pos = torch.zeros((N, ctx_len), dtype=p_pos.dtype, device=p_pos.device)
+    prom_pos_vals = torch.gather(p_pos, 1, src_prom_col)            # [N, ctx_len]
+    ctx_pos = torch.where(prom_mask, prom_pos_vals, ctx_pos)
+
+    last_pos = p_pos[:, -1].unsqueeze(1)                            # [N,1] original right end position
+    ar = torch.arange(1, max_k+1, device=p_pos.device).unsqueeze(0) # [1, max_k]
+    pref_pos_table = last_pos + ar                                  # [N, max_k]
+    pref_pos_vals = torch.gather(pref_pos_table, 1, src_pref_col.clamp(0, max_k-1))
+    ctx_pos = torch.where(pref_mask, pref_pos_vals, ctx_pos)
+
+    return ctx_ids, ctx_msk, ctx_pos, max_k
+
+def align_prev_to_gen(
+    *,
+    prev_data: dict,
+    gen_batch,
+    tokenizer,
+    n_repeat: int,
+    log_prob_key: str = "log_probs",
+):
+    """
+    Align tensors from a *previous rollout file* (`prev_data`) to the row-order
+    of the *current* `gen_batch`, where `gen_batch` has already been
+    `repeat(interleave=True)` so that **each prompt appears `n_repeat` times
+    consecutively.**
+
+    Parameters
+    ----------
+    prev_data : dict
+        Loaded torch object, must contain:
+            • prev_data["input"]       – list[str] prompt texts
+            • prev_data[log_prob_key]  – Tensor [B, …]   (old log-probs, etc.)
+            • prev_data[resp_len_key]  – Tensor [B]
+        Row count `B` == len(gen_batch) (after repeat).
+    gen_batch : DataProto
+        Current batch after `.repeat(interleave=True)`.
+    tokenizer : transformers.PreTrainedTokenizer
+        Same tokenizer used during rollout.
+    n_repeat : int
+        Number of consecutive duplicates for every prompt (e.g. 8).
+    log_prob_key : str
+        Keys of tensors inside `prev_data` you want to align and return.
+
+    Returns
+    -------
+    aligned : dict
+        {
+            log_prob_key : Tensor aligned to gen_batch row order,
+            "perm"       : LongTensor row-index permutation that did the trick
+        }
+        If you later need `input_ids`, re-encode on-the-fly from
+        `[prev_data["input"][i] for i in perm]`.
+    """
+    # ---------- reference order (deduped) ----------
+    ref_prompts = tokenizer.batch_decode(
+        gen_batch.batch["input_ids"][::n_repeat],  # take first row of each block
+        skip_special_tokens=True,
+    )
+
+    # ---------- build prompt -> deque[row_ids] -----
+
+    bucket = defaultdict(deque)
+    for idx, txt in enumerate(prev_data["input"]):
+        bucket[txt].append(idx)
+
+    # ---------- pick rows block-by-block -----------
+    perm_rows = []
+    for txt in ref_prompts:
+        if len(bucket[txt]) < n_repeat:
+            raise ValueError(
+                f"Prompt «{txt[:60]}…» appears fewer than {n_repeat} times "
+                "in prev_data – cannot align."
+            )
+        for _ in range(n_repeat):
+            perm_rows.append(bucket[txt].popleft())
+
+    perm = torch.tensor(perm_rows, dtype=torch.long)
+
+    # ---------- index-select tensors ---------------
+    aligned = {
+        log_prob_key: prev_data[log_prob_key].index_select(0, perm),
+        "perm": perm,
+    }
+    return aligned
 
 class Role(Enum):
     """
@@ -629,26 +763,77 @@ class RayPPOTrainer:
         except Exception as e:
             print(f"Warning: Could not set total_training_steps in config. Structure missing? Error: {e}")
 
+    def _dump_generations_pt(
+        self,
+        inputs:  List[str],
+        outputs: List[str],
+        scores:  List[float],
+        log_probs: List[List[float]],          # token-level log p
+        reward_extra_infos_dict: Dict[str, Any],
+        dump_path: str,
+        response_masks,
+        responses,
+        position_ids,
+    ):
+        """Dump rollout/validation samples as .pt (torch.save)."""
+        os.makedirs(dump_path, exist_ok=True)
+        filename = os.path.join(dump_path, f"{self.global_steps}.pt")
+
+        # sort uniformly (keep the same order as the original JSONL)
+        order = sorted(range(len(inputs)), key=lambda i: inputs[i])
+        order_idx = torch.tensor(order)
+        
+        # 1. reorder directly at tensor level
+        data = {
+            "step":  torch.tensor(self.global_steps),
+            "input": [inputs[i]  for i in order],
+            "output":[outputs[i] for i in order],
+            "score": torch.tensor([scores[i] for i in order], dtype=torch.float32),
+            "log_probs": (log_probs.index_select(0, order_idx)
+                        .to(torch.float32)),
+            "response_masks": (response_masks.index_select(0, order_idx)),
+            "responses": (responses.index_select(0, order_idx)),
+            "position_ids": (position_ids.index_select(0, order_idx)),
+            "orig_idx": torch.tensor(order, dtype=torch.int32)
+        }
+
+        # 2. other extra fields
+        for k, v in reward_extra_infos_dict.items():
+            if len(v) == len(inputs):
+                data[k] = torch.tensor([v[i] for i in order]) if isinstance(v[0], (int,float)) \
+                        else [v[i] for i in order]
+            else:
+                data[k] = v
+        # 3. save
+        torch.save(data, filename)
+        print(f"[dump] {len(inputs)} samples → {filename}")
+
+
     def _dump_generations(self, inputs, outputs, scores, reward_extra_infos_dict, dump_path):
         """Dump rollout/validation samples as JSONL."""
         os.makedirs(dump_path, exist_ok=True)
         filename = os.path.join(dump_path, f"{self.global_steps}.jsonl")
-
-        n = len(inputs)
-        base_data = {
-            "input": inputs,
-            "output": outputs,
-            "score": scores,
-            "step": [self.global_steps] * n,
+        # 1. calculate order index
+        order = sorted(range(len(inputs)), key=lambda i: inputs[i])
+        # 2. reorder all fields
+        sorted_inputs   = [inputs[i]   for i in order]
+        sorted_outputs  = [outputs[i]  for i in order]
+        sorted_scores   = [scores[i]   for i in order]
+        sorted_extras   = {
+            k: [v[i] for i in order] if len(v) == len(inputs) else v
+            for k, v in reward_extra_infos_dict.items()
         }
-
-        for k, v in reward_extra_infos_dict.items():
-            if len(v) == n:
-                base_data[k] = v
-
         lines = []
-        for i in range(n):
-            entry = {k: v[i] for k, v in base_data.items()}
+        for idx in range(len(sorted_inputs)):
+            entry = {
+                "input": sorted_inputs[idx],
+                "output": sorted_outputs[idx],
+                "score": sorted_scores[idx],
+                "step": self.global_steps,
+            }
+            for k, v in sorted_extras.items():
+                if len(v) == len(sorted_inputs):
+                    entry[k] = v[idx]
             lines.append(json.dumps(entry, ensure_ascii=False))
 
         with open(filename, "w") as f:
@@ -1081,6 +1266,37 @@ class RayPPOTrainer:
         )
         metrics.update(global_balance_stats)
 
+    def _preload_rollout_lists(self, rollout_data_dir):
+        """build two defaultdict(list), containing all completed files in the current directory."""
+        rollout_root = Path(rollout_data_dir)
+
+        step_re = re.compile(r"(\d+)\.(jsonl|pt)$")
+        pol_txt  = defaultdict(list)         # {sid: [jsonl1, jsonl2, ...]}
+        pol_pt   = defaultdict(list)         # {sid: [pt1,    pt2,    ...]}
+
+        for fn in glob.glob(str(rollout_root / "*.[jp][st]*")):
+            m = step_re.search(fn)
+            if not m:                                    # skip strange names
+                continue
+            step = int(m.group(1))                       # 123.jsonl -> 123
+            sid  = ((step - 1) % self.num_buckets) + 1   # map to 1..6
+            if step <= self.global_steps - 1:            # only collect completed step
+                if m.group(2) == "jsonl":
+                    pol_txt[sid].append(fn)
+                else:
+                    pol_pt[sid].append(fn)
+
+        # ensure same sid is sorted by step
+        for d in (pol_txt, pol_pt):
+            for sid, lst in d.items():
+                lst.sort(key=lambda p: int(Path(p).stem))
+
+        self.latest_old_policy        = pol_txt
+        self.latest_old_policy_tensor = pol_pt
+
+        print(f"[INIT] preload txt={sum(len(v) for v in pol_txt.values())}  "
+            f"pt={sum(len(v) for v in pol_pt.values())}  files")
+
     def fit(self):
         """
         The training loop of PPO.
@@ -1122,6 +1338,21 @@ class RayPPOTrainer:
         last_val_metrics = None
         self.max_steps_duration = 0
 
+        # bsliu - add init logic here 2025-08-07-14:34:46
+        self.latest_old_policy = defaultdict(list)
+        self.latest_old_policy_tensor = defaultdict(list)
+        # preload all rollout dirs
+
+        rollout_data_dir = self.config.trainer.get("rollout_data_dir", None)
+        debug_mode = self.config.trainer.get("debug_mode", False)
+        self.num_buckets = len(self.train_dataloader)
+        if rollout_data_dir:
+            self._preload_rollout_lists(rollout_data_dir)
+        # align with the current global steps, maybe only previous steps files
+
+        # bsliu - add init logic here
+
+        time_accumulation = 0.0
         for epoch in range(self.config.trainer.total_epochs):
             for batch_dict in self.train_dataloader:
                 metrics = {}
@@ -1163,16 +1394,245 @@ class RayPPOTrainer:
                 gen_batch = gen_batch.repeat(repeat_times=self.config.actor_rollout_ref.rollout.n, interleave=True)
 
                 is_last_step = self.global_steps >= self.total_training_steps
+                spec_decoding = self.config.trainer.get("spec_decoding", False)
 
                 with marked_timer("step", timing_raw):
+                    if spec_decoding:
+                        sid = ((self.global_steps - 1) % self.num_buckets) + 1
+
+                        print(f"Begin Speculative Decoding...")
+                        print(f"Current step: {self.global_steps}\t Total buckets: {self.num_buckets}")
+                        print(f"Current sid: {sid=}\t latest_old_policy: {self.latest_old_policy_tensor[sid]}")
+                        print(f"")
+                        prev_texts = self.latest_old_policy[sid]
+                        prev_pts = self.latest_old_policy_tensor[sid]
+                        have_pre_rollouts = len(prev_texts) > 0 or len(prev_pts) > 0
+                        if have_pre_rollouts:
+                            with marked_timer("pre_log_probs", timing_raw, color="blue"):
+                                # now only consider loading from pt file
+                                prev_data = torch.load(prev_pts[-1], map_location="cpu")
+                                N = self.config.actor_rollout_ref.rollout.n
+                                aligned = align_prev_to_gen(
+                                    prev_data = prev_data,
+                                    gen_batch = gen_batch,
+                                    tokenizer = self.tokenizer,
+                                    n_repeat  = N,
+                                )
+                                perm = aligned["perm"]
+                                # aligned_texts = [prev_data['input'][i] for i in perm.tolist()]
+                                # aligned_outputs = [prev_data['output'][i] for i in perm.tolist()]
+                                aligned_old_logp = aligned["log_probs"]
+                                aligned_old_response_mask = prev_data['response_masks'].index_select(0, perm)
+                                aligned_old_responses = prev_data['responses'].index_select(0, perm)
+                                aligned_position_ids = prev_data['position_ids'].index_select(0, perm)
+
+                                if self.tokenizer.pad_token is None:
+                                    self.tokenizer.pad_token = self.tokenizer.eos_token
+
+                                prompt_ids        = gen_batch.batch["input_ids"]            # [B,P]
+                                prompt_attn_mask  = gen_batch.batch["attention_mask"]       # [B,P]
+                                prompt_pos_ids   = gen_batch.batch["position_ids"]
+                                attention_mask = torch.cat([prompt_attn_mask, aligned_old_response_mask], dim=1)
+                                input_ids      = torch.cat([prompt_ids,       aligned_old_responses],       dim=-1)
+
+
+                                pre_prob_data = DataProto.from_single_dict({
+                                    "responses": aligned_old_responses,
+                                    "input_ids": input_ids,
+                                    "attention_mask": attention_mask,
+                                    "position_ids": aligned_position_ids
+                                })
+                                pre_log_probs = self.actor_rollout_wg.compute_log_prob(pre_prob_data)
+                                old_logp = aligned_old_logp
+                                new_logp = pre_log_probs.batch['old_log_probs']
+                                response_mask = aligned_old_response_mask
+
+                                spec_bias = self.config.trainer.get("spec_bias", 0.0)
+                                # params for ablation random reuse baselines
+                                random_reuse = self.config.trainer.get("random_reuse", 0.0)
+                                random_reuse_all = self.config.trainer.get("random_reuse_all", 0.0)
+
+                                if random_reuse_all > 0.0:
+                                    out = rand_reuse_all_cut(
+                                        old_logp=old_logp,
+                                        new_logp=new_logp,
+                                        response_mask=response_mask,
+                                        reuse_prob=random_reuse_all,  # 对所有数据进行随机截断
+                                        seed=1234,
+                                    )
+                                elif random_reuse > 0.0:
+                                    out = rand_reuse_cut(
+                                        old_logp=old_logp,
+                                        new_logp=new_logp,
+                                        response_mask=response_mask,
+                                        reuse_prob=random_reuse,   # ∈ [0,1]，按概率随机整行复用
+                                        seed=1234,
+                                    )
+                                elif spec_bias == 0.0:
+                                    out = spec_cut(
+                                        old_logp=old_logp, 
+                                        new_logp=new_logp,
+                                        response_mask=response_mask,
+                                        p_abs_thresh=None,
+                                        seed=1234,
+                                    )
+                                else:
+                                    out = spec_cut_with_knobs(
+                                        old_logp=old_logp, 
+                                        new_logp=new_logp,
+                                        response_mask=response_mask,
+                                        bias=spec_bias if spec_bias < 0 else -spec_bias,
+                                        p_abs_thresh=None,
+                                        seed=1234,
+                                    )
+
+                                cut_idx   = out["cut_idx"]                      # [B]
+                                idx_reuse = out["idx_reuse"]                    # [Nr]
+                                idx_need  = out["idx_need"]                     # [Nn]
+
+                                rows = idx_need
+                                p_ids = gen_batch.batch["input_ids"][rows]
+                                p_msk = gen_batch.batch["attention_mask"][rows]
+                                p_pos = gen_batch.batch["position_ids"][rows]
+                                ctx_ids, ctx_msk, ctx_pos, max_k = build_ctx_no_loop(
+                                    p_ids, p_msk, p_pos,
+                                    aligned_old_responses[rows],            # 旧响应子批
+                                    cut_idx[rows],                 # 每行前缀长度
+                                    pad_id=self.tokenizer.pad_token_id,
+                                )
+
+                                need_dp = DataProto.from_single_dict({
+                                    "input_ids":      ctx_ids,     # 左padding不变 + 右侧prefix
+                                    "attention_mask": ctx_msk,
+                                    "position_ids":   ctx_pos,
+                                })
+                                need_dp.meta_info = dict(gen_batch.meta_info)
+                                per_req_np = out["per_request_max_new_tokens"][idx_need.cpu()].detach().cpu().numpy().astype(np.int32)
+
+                                # need_dp.meta_info["per_request_max_new_tokens"] = per_req
+                                need_dp.non_tensor_batch["per_request_max_new_tokens"] = per_req_np
+                                need_dp.meta_info["spec_decoding"] = True
+
+                                # === Pad to DP world_size multiple ===
+                                size_divisor = (
+                                    self.actor_rollout_wg.world_size
+                                    if not self.async_rollout_mode
+                                    else self.config.actor_rollout_ref.rollout.agent.num_workers
+                                )
+                                if idx_need.shape[0] > 0:
+                                    need_dp_padded, pad_size = pad_dataproto_to_divisor(need_dp, size_divisor)
+                                    gen_batch = need_dp_padded
+                                else:
+                                    gen_batch = need_dp
+                                
+                                metrics.update(out['metrics'])
                     # generate a batch
                     with marked_timer("gen", timing_raw, color="red"):
                         if not self.async_rollout_mode:
-                            gen_batch_output = self.actor_rollout_wg.generate_sequences(gen_batch)
+                            if gen_batch.batch['input_ids'].shape[0] == 0:
+                                gen_batch_output = None
+                            else:
+                                gen_batch_output = self.actor_rollout_wg.generate_sequences(gen_batch)
                         else:
                             gen_batch_output = self.async_rollout_manager.generate_sequences(gen_batch)
-                        timing_raw.update(gen_batch_output.meta_info["timing"])
-                        gen_batch_output.meta_info.pop("timing", None)
+
+                        if gen_batch.batch['input_ids'].shape[0] != 0:
+                            timing_raw.update(gen_batch_output.meta_info["timing"])
+                            gen_batch_output.meta_info.pop("timing", None)
+                    # bsliu - 2025-08-12-04:20:52
+                    if spec_decoding:
+                        if have_pre_rollouts:
+                            with marked_timer("post-rollout", timing_raw, color="red"):
+                                if idx_need.shape[0] > 0:
+                                    gen_batch_output = unpad_dataproto(gen_batch_output, pad_size=pad_size)
+                                    gen_out_meta_info = gen_batch_output.meta_info
+                                else:
+                                    gen_out_meta_info = {}
+                                pad_id = self.tokenizer.pad_token_id
+
+                                B, P = prompt_ids.shape
+                                R = aligned_old_responses.shape[1]
+
+                                # pre-allocate
+                                final_inputs = torch.full((B, P + R), pad_id, dtype=prompt_ids.dtype)
+                                final_attn   = torch.zeros((B, P + R), dtype=prompt_attn_mask.dtype)
+                                final_pos    = torch.zeros((B, P + R), dtype=prompt_pos_ids.dtype)
+                                final_resp   = torch.full((B, R),       pad_id, dtype=prompt_ids.dtype)
+
+                                # fill prompt segment
+                                final_inputs[:, :P] = prompt_ids
+                                final_attn[:,  :P]  = prompt_attn_mask
+                                final_pos[:,   :P]  = prompt_pos_ids
+
+                                # position increment constant
+                                delta = torch.arange(1, R + 1, dtype=prompt_pos_ids.dtype)
+
+                                if idx_reuse.numel() > 0:
+                                    final_resp[idx_reuse] = aligned_old_responses[idx_reuse]
+                                    final_attn[idx_reuse, P:P+R] = aligned_old_response_mask[idx_reuse]
+                                    last_pos_reuse = prompt_pos_ids[idx_reuse, -1].unsqueeze(1)
+                                    final_pos[idx_reuse, P:P+R] = last_pos_reuse + delta
+
+                                # trunc_total = 0
+                                trunc_nonpad = 0
+                                trunc_nonpad_tokens = 0
+                                if idx_need.numel() > 0:
+                                    new_resp = gen_batch_output.batch["responses"]
+                                    # row-wise copy (for loop is fast on CPU)
+                                    for row_in_sub, i in enumerate(idx_need.tolist()):
+                                        k = int(cut_idx[i])                       # prefix length that can be reused
+                                        keep_pref = min(k, R)                     # prefix length cannot exceed R
+                                        take_new  = R - keep_pref                 # new response length that can be put
+
+                                        if keep_pref > 0:
+                                            final_resp[i, :keep_pref] = aligned_old_responses[i, :keep_pref]
+
+                                        if take_new > 0:
+                                            final_resp[i, keep_pref:keep_pref+take_new] = new_resp[row_in_sub, :take_new]
+
+                                        # 3) count the number of non-pad tokens in the truncated "new response"
+                                        trunc_len = min(k, R)
+                                        if trunc_len > 0:
+                                            tail = new_resp[row_in_sub, R - trunc_len : R]
+                                            # trunc_total   += trunc_len
+                                            trunc_nonpad_tokens  += int((tail != pad_id).sum().item())
+                                            if trunc_nonpad_tokens > 0:
+                                                trunc_nonpad += 1
+
+                                    # —— here reconstruct the response segment mask of need rows, **include the first pad/eot**
+                                    nr = idx_need.long()
+                                    need_resp_full = final_resp[nr]                  # [N_need, R]
+                                    is_pad = (need_resp_full == pad_id)              # [N_need, R]
+                                    has_pad = is_pad.any(dim=1)                      # [N_need]
+                                    # position of the first pad (0 when no pad)
+                                    first_pad_idx = torch.argmax(is_pad.to(torch.int32), dim=1)    # [N_need]
+                                    # inclusive length: has pad -> idx+1; no pad -> R
+                                    L_inclusive = torch.where(
+                                        has_pad,
+                                        first_pad_idx + 1,
+                                        torch.full_like(first_pad_idx, fill_value=need_resp_full.size(1))
+                                    ) # [N_need]
+                                    col = torch.arange(need_resp_full.size(1), dtype=prompt_attn_mask.dtype).unsqueeze(0)  # [1,R]
+                                    resp_mask_need = (col < L_inclusive.unsqueeze(1)).to(prompt_attn_mask.dtype)           # [N_need,R]
+
+                                    final_attn[nr, P:P+R] = resp_mask_need
+                                    last_pos_need = prompt_pos_ids[nr, -1].unsqueeze(1)
+                                    final_pos[nr,  P:P+R] = last_pos_need + delta
+
+                                    final_inputs[:, P:P+R] = final_resp
+
+                                # assemble final DataProto
+                                merged = {
+                                    "prompts":        prompt_ids,    # [B,P]
+                                    "responses":      final_resp,     # [B,R]
+                                    "input_ids":      final_inputs,   # [B,P+R]
+                                    "attention_mask": final_attn,     # [B,P+R]
+                                    "position_ids":   final_pos,      # [B,P+R]
+                                }
+
+                                gen_batch_output = DataProto.from_single_dict(merged)
+                                gen_batch_output.meta_info = gen_out_meta_info
+                    # bsliu - 2025-08-12-04:20:52
 
                     if self.config.algorithm.adv_estimator == AdvantageEstimator.REMAX:
                         with marked_timer("gen_max", timing_raw, color="purple"):
@@ -1308,7 +1768,6 @@ class RayPPOTrainer:
                             norm_adv_by_std_in_grpo=norm_adv_by_std_in_grpo,
                             config=self.config.algorithm,
                         )
-
                     # update critic
                     if self.use_critic:
                         with marked_timer("update_critic", timing_raw, color="pink"):
@@ -1344,6 +1803,22 @@ class RayPPOTrainer:
                                 reward_extra_infos_dict=reward_extra_infos_dict,
                                 dump_path=rollout_data_dir,
                             )
+                            sid = ((self.global_steps - 1) % self.num_buckets) + 1
+                            self.latest_old_policy[sid].append(os.path.join(rollout_data_dir, f"{self.global_steps}.jsonl"))
+                            spec_decoding = self.config.trainer.get("spec_decoding", False)
+                            if spec_decoding:
+                                self._dump_generations_pt(
+                                    inputs=inputs,
+                                    outputs=outputs,
+                                    scores=scores,
+                                    log_probs=old_log_prob.batch['old_log_probs'],
+                                    reward_extra_infos_dict=reward_extra_infos_dict,
+                                    dump_path=rollout_data_dir,
+                                    response_masks=batch.batch["response_mask"],
+                                    responses=batch.batch["responses"],
+                                    position_ids=batch.batch["position_ids"],
+                                )
+                                self.latest_old_policy_tensor[sid].append(os.path.join(rollout_data_dir, f"{self.global_steps}.pt"))
 
                     # validate
                     if (
@@ -1393,6 +1868,8 @@ class RayPPOTrainer:
                     }
                 )
                 # collect metrics
+                time_accumulation += timing_raw["step"]
+                timing_raw['time_accumulation'] = time_accumulation
                 metrics.update(compute_data_metrics(batch=batch, use_critic=self.use_critic))
                 metrics.update(compute_timing_metrics(batch=batch, timing_raw=timing_raw))
                 # TODO: implement actual tflpo and theoretical tflpo
