@@ -8,7 +8,7 @@ export WORKING_DIR=${PROJECT_DIR}
 
 bash ${PROJECT_DIR}/training_scripts/train_grpo-spec-sampling.sh \
     --dataset_name deepmath \
-    --train_file_name train_sample_6144s_context_4k \
+    --train_file_name train_sample_6144_context_4k \
     --model_name Qwen3-1.7B-base \
     --max_response_length 4096 \
     --train_batch_size 1024 \
