@@ -197,7 +197,7 @@ python3 -m verl.trainer.main_ppo \
     trainer.logger=['console','wandb'] \
     trainer.project_name=$PROJECT_NAME \
     trainer.experiment_name=$RUN_NAME \
-    trainer.rollout_data_dir=rollouts/$RUN_NAME \
+    trainer.rollout_data_dir=$WORKING_DIR/rollouts/$RUN_NAME \
     trainer.n_gpus_per_node=$NUM_GPU \
     trainer.nnodes=1 \
     trainer.save_freq=$SAVE_FREQ \

@@ -16,5 +16,5 @@ bash ${PROJECT_DIR}/training_scripts/train_grpo.sh \
     --rollout_gpu_memory_util 0.8 \
     --rollout_tp 2 \
     --rollout_name vllm \
-    --save_freq 5 \
+    --save_freq 10 \
     --project_name your-project-name
