@@ -2,7 +2,6 @@ set -x
 
 export VLLM_ATTENTION_BACKEND=XFORMERS
 export HYDRA_FULL_ERROR=1
-export WANDB_API_KEY=your-wandb-api-key
 
 export RUN_NAME=your-custom-run-name
 export DATA_PATH=path-to-data-dir
