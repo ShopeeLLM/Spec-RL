@@ -38,7 +38,6 @@ NUM_GPU=8
 REWARD_FN_PATH=path-to-reward-fn
 MODEL_PATH=path-to-default-base-model-dir
 CHECKPOINT_PATH=path-to-default-save-model-path
-mkdir -p $CHECKPOINT_PATH
 
 
 generate_suffix() {
@@ -156,6 +155,7 @@ echo "Rollout Name: $ROLLOUT_NAME"
 echo "Num GPU: $NUM_GPU"
 echo "Checkpoint Path: $CHECKPOINT_PATH"
 
+mkdir -p $CHECKPOINT_PATH
 mkdir -p $CHECKPOINT_PATH/$RUN_NAME
 
 export RAY_memory_usage_threshold=0.99
