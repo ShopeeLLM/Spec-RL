@@ -3,9 +3,9 @@ set -x
 export VLLM_ATTENTION_BACKEND=XFORMERS
 export HYDRA_FULL_ERROR=1
 
-export RUN_NAME=your-custom-run-name
-export DATA_PATH=path-to-data-dir
-export LOG_PATH=path-to-log-dir
+export RUN_NAME=spec-rl
+export DATA_PATH=${WORKING_DIR}/data
+export LOG_PATH=${WORKING_DIR}/logs
 mkdir -p $LOG_PATH
 
 
