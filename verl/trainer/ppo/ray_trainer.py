@@ -1323,7 +1323,7 @@ class RayPPOTrainer:
                                         old_logp=old_logp,
                                         new_logp=new_logp,
                                         response_mask=response_mask,
-                                        reuse_prob=random_reuse_all,  # 对所有数据进行随机截断
+                                        reuse_prob=random_reuse_all,
                                         seed=1234,
                                     )
                                 elif random_reuse > 0.0:
@@ -1331,7 +1331,7 @@ class RayPPOTrainer:
                                         old_logp=old_logp,
                                         new_logp=new_logp,
                                         response_mask=response_mask,
-                                        reuse_prob=random_reuse,  # ∈ [0,1]，按概率随机整行复用
+                                        reuse_prob=random_reuse,
                                         seed=1234,
                                     )
                                 elif spec_bias == 0.0:
@@ -1362,13 +1362,13 @@ class RayPPOTrainer:
                                 p_pos = gen_batch.batch["position_ids"][rows]
                                 ctx_ids, ctx_msk, ctx_pos, max_k = build_ctx(
                                     p_ids, p_msk, p_pos,
-                                    aligned_old_responses[rows],  # 旧响应子批
-                                    cut_idx[rows],  # 每行前缀长度
+                                    aligned_old_responses[rows],
+                                    cut_idx[rows],
                                     pad_id=self.tokenizer.pad_token_id,
                                 )
 
                                 need_dp = DataProto.from_single_dict({
-                                    "input_ids": ctx_ids,  # 左padding不变 + 右侧prefix
+                                    "input_ids": ctx_ids,
                                     "attention_mask": ctx_msk,
                                     "position_ids": ctx_pos,
                                 })
