@@ -99,7 +99,7 @@ def spec_cut_with_knobs(
 
     bad = valid & (~accept)
     has_bad   = bad.any(dim=1)
-    first_bad = torch.argmax(bad.to(torch.int8), dim=1)       # 无 bad -> 0
+    first_bad = torch.argmax(bad.to(torch.int8), dim=1)       # Return 0 when there are no bad tokens -> 0
     cut_idx   = torch.where(has_bad, first_bad, resp_len)     # [B]
 
     reuse_mask = (cut_idx == resp_len)
@@ -152,7 +152,7 @@ def rand_reuse_cut(
     reuse_mask = (row_rand < reuse_prob)                                    # [B] bool
     need_mask  = ~reuse_mask
 
-    # ---- calculate cut_idx / idx_* / per_request_max_new_tokens（与 spec_*\* 对齐）----
+    # ---- calculate cut_idx / idx_* / per_request_max_new_tokens----
     zero_like = torch.zeros_like(resp_len)
     cut_idx   = torch.where(reuse_mask, resp_len, zero_like)                # [B]
 
