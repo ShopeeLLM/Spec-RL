@@ -15,7 +15,7 @@
   
 <!-- **Authors:** -->
 
-**_¹ [Bingshuai Liu](https://bingshuailiu.github.io),  Ante Wang, ¹ Zijun Min,_**
+**_¹ [Bingshuai Liu](https://bingshuailiu.github.io), ¹ Ante Wang, ¹ Zijun Min,_**
 
 **_² Liang Yao, ² Haibo Zhang, ² Anxiang Zeng, ¹ <sup>*</sup>Jinsong Su_**
 
