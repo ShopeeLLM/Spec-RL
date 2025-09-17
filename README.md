@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./assets/page.jpg" alt="Logo" width="">
+  <img src="./assets/page.jpg" alt="Logo" width="100">
 </div>
 
 # SPEC-RL: Accelerating On-Policy Reinforcement Learning via Speculative Rollouts
