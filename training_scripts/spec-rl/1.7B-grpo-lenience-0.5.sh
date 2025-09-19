@@ -6,7 +6,7 @@ SAVE_PATH=path-to-your-save-path
 PROJECT_NAME=your-custom-project-name
 
 # for vllm 0.9.1: uncomment to fix oov issue
-sudo bash ${PROJECT_DIR}/training_scripts/fix_vllm_oov.sh
+sudo bash ${PROJECT_DIR}/training_scripts/fix_vllm_oov.sh ${PROJECT_DIR}
 
 cd ${PROJECT_DIR}
 export WORKING_DIR=${PROJECT_DIR}
@@ -25,7 +25,7 @@ bash ${PROJECT_DIR}/training_scripts/train_grpo-spec-sampling.sh \
     --total_epochs 20 \
     --total_steps 100 \
     --rollout_name vllm \
-    --save_freq -1 \
+    --save_freq 10 \
     --spec_decoding True \
     --bias 0.5 \
     --checkpoint_path ${SAVE_PATH} \

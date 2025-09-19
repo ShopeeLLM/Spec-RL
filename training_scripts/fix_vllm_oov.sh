@@ -3,7 +3,7 @@
 # https://github.com/volcengine/verl/issues/1398
 # https://github.com/vllm-project/vllm/issues/13175
 # replace vllm processor.py to current processor.py
-
+PROJECT_DIR=$1
 SRC="${PROJECT_DIR}/fix_oov/processor.py"
 # checkout your own vllm package place
 # for docker image provided by: verlai/verl:app-verl0.5-vllm0.9.1-mcore0.12.2-te2.2

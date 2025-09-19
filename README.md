@@ -30,15 +30,11 @@ _<sup>*</sup>Jinsong is the corresponding author: [jssu@xmu.edu.cn](mailto:jssu@
 
 Use **either** Docker (fastest) **or** a Conda environment aligned with **verl 0.5.x**.
 
----
-
 ### Option A — Docker (recommended)
 
 Use this prebuilt image (no further steps here):
 
 **`verlai/verl:app-verl0.5-vllm0.9.1-mcore0.12.2-te2.2`**
-
----
 
 ### Option B — Conda (VERL 0.5.x)
 
@@ -47,13 +43,8 @@ Follow verl's official 0.5.x installation guide to set up the environment (PyTor
 https://verl.readthedocs.io/en/v0.5.x/start/install.html#install-from-custom-environment
 
 
----
-
-
 ## Training
 This repo ships two shell scripts under `training_scripts/`. Please **download datasets first**, then **configure paths**, then **launch**.
-
----
 
 ### 1) Download code
 
@@ -68,8 +59,6 @@ bash data/download.sh
 ````
 
 This will populate `data/` with the required files.
-
----
 
 ### 3) Configure the scripts
 
@@ -100,8 +89,6 @@ Set the following variables to **your own paths**:
 MODEL_PATH=path-to-default-base-model-dir
 CHECKPOINT_PATH=path-to-default-save-model-path
 ```
-
----
 
 #### (B) SPEC-RL
 
@@ -136,17 +123,11 @@ SPEC_DECODING=False
 BIAS=0.0
 ```
 
----
-
-
-
 ### 3) Login to Weights & Biases
 
 ```bash
 wandb login
 ```
-
----
 
 ### 4) Launch training
 
@@ -165,4 +146,3 @@ bash training_scripts/spec-rl/1.7B-grpo-lenience-0.5.sh
 
 After the first run, monitor logs under `logs/` (and your W\&B project if enabled).
 
----
