@@ -22,7 +22,7 @@
 
 <!-- **Affiliations:** -->
 
-_¹ Xiamen University, ² Shopee_
+_¹ Xiamen University, ² Shopee LLM Team_
 
 _<sup>*</sup>Jinsong is the corresponding author: [jssu@xmu.edu.cn](mailto:jssu@xmu.edu.cn)_
 </div>
