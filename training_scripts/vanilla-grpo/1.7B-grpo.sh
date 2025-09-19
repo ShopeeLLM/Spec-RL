@@ -1,8 +1,9 @@
 #!/bin/bash
 
 PROJECT_DIR=path-to-root-project-dir
-MODEL_PATH=path-to-your-model-path
+MODEL_PATH=path-to-your-base-model-path
 SAVE_PATH=path-to-your-save-path
+PROJECT_NAME=your-custom-project-name
 
 # for vllm 0.9.1: uncomment to fix oov issue
 # sudo bash ${PROJECT_DIR}/training_scripts/fix_vllm_oov.sh
@@ -26,4 +27,4 @@ bash ${PROJECT_DIR}/training_scripts/train_grpo.sh \
     --rollout_name vllm \
     --save_freq 10 \
     --checkpoint_path ${SAVE_PATH} \
-    --project_name your-project-name
+    --project_name ${PROJECT_NAME}

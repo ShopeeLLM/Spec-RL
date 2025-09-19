@@ -3,6 +3,7 @@
 PROJECT_DIR=path-to-root-project-dir
 MODEL_PATH=path-to-your-model-path
 SAVE_PATH=path-to-your-save-path
+PROJECT_NAME=your-custom-project-name
 
 # for vllm 0.9.1: uncomment to fix oov issue
 sudo bash ${PROJECT_DIR}/training_scripts/fix_vllm_oov.sh
@@ -28,4 +29,4 @@ bash ${PROJECT_DIR}/training_scripts/train_grpo-spec-sampling.sh \
     --spec_decoding True \
     --bias 0.5 \
     --checkpoint_path ${SAVE_PATH} \
-    --project_name demo-spec-rl
+    --project_name ${PROJECT_NAME}
