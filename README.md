@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./assets/page.jpg" alt="Logo" width="">
+  <img src="./assets/page.jpg" alt="Logo" width="500">
 </div>
 
 # SPEC-RL: Accelerating On-Policy Reinforcement Learning via Speculative Rollouts
@@ -15,9 +15,9 @@
   
 <!-- **Authors:** -->
 
-**_¹ [Bingshuai Liu](https://bingshuailiu.github.io),  [Ante Wang](), ¹ [Zijun Min](),_**
+**_¹ [Bingshuai Liu](https://bingshuailiu.github.io), ¹ Ante Wang, ¹ Zijun Min,_**
 
-**_² [Liang Yao](), ² [Haibo Zhang](), ² [Anxiang Zeng](), ¹ <sup>*</sup>[Jinsong Su]()_**
+**_² Liang Yao, ² Haibo Zhang, ² Anxiang Zeng, ¹ <sup>*</sup>Jinsong Su_**
 
 
 <!-- **Affiliations:** -->
