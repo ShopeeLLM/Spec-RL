@@ -14,13 +14,14 @@
 
 
 
-**_¹ [Bingshuai Liu](https://bingshuailiu.github.io), ¹ Ante Wang, ¹ Zijun Min,_**
+**_¹ <sup>+</sup> [Bingshuai Liu](https://bingshuailiu.github.io), ¹ ³ <sup>+</sup> Ante Wang, ¹ <sup>+</sup> Zijun Min,_**
 
-**_² Liang Yao, ² Haibo Zhang, ² Anxiang Zeng, ¹ <sup>*</sup>Jinsong Su_**
+**_² Liang Yao, ² Haibo Zhang, ³ Yang Liu, ² Anxiang Zeng, ¹ <sup>*</sup>Jinsong Su_**
 
 
-_¹ Xiamen University, ² Shopee LLM Team_
+_¹ Xiamen University, ² Shopee LLM Team, ³ Institute for AI Industry Research (AIR), Tsinghua University_
 
+_<sup>+</sup> Equal Contribution_
 _<sup>*</sup>Jinsong is the corresponding author: [jssu@xmu.edu.cn](mailto:jssu@xmu.edu.cn)_
 </div>
 
