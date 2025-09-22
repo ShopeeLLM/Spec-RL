@@ -135,8 +135,7 @@ wandb login
 **Vanilla GRPO baseline** (recommended first run):
 
 ```bash
-# use the exact filename present in your repo
-bash training_scripts/vanilla-grpo/1.7B_grpo.sh
+bash training_scripts/vanilla-grpo/1.7B-grpo.sh
 ```
 
 **SPEC-RL (with speculative decoding) GRPO**:
