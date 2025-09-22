@@ -41,7 +41,7 @@ Use this prebuilt image (no further steps here):
 
 Follow verl's official 0.5.x installation guide to set up the environment (PyTorch, vLLM, etc.):
 
-https://verl.readthedocs.io/en/v0.5.x/start/install.html#install-from-custom-environment
+https://verl.readthedocs.io/en/v0.5.x/start/install.html#install-dependencies
 
 
 ## Training
