@@ -69,10 +69,10 @@ There are **two** scripts to edit before running:
 
 1. Set **your own project root**:
 
-   File: `${project_root_path}/training_scripts/vanilla-grpo/1.7B_grpo.sh`
+   File: `training_scripts/vanilla-grpo/1.7B-grpo.sh`
 
 ```bash
-# inside training_scripts/vanilla-grpo/1.7B_grpo.sh
+# inside training_scripts/vanilla-grpo/1.7B-grpo.sh
 PROJECT_DIR=path-to-root-project-dir
 MODEL_PATH=path-to-your-base-model-path
 SAVE_PATH=path-to-your-save-path
@@ -81,7 +81,7 @@ PROJECT_NAME=your-custom-project-name
 
 2. Set GRPO main script:
 
-File: `${project_root_path}/training_scripts/train_grpo.sh`
+File: `training_scripts/train_grpo.sh`
 
 Set the following variables to **your own paths**:
 
@@ -95,7 +95,7 @@ CHECKPOINT_PATH=path-to-default-save-model-path
 
 1. Set **your own project root** and **SPEC-RL parameters ⚡**:
 
-   File: `${project_root_path}/training_scripts/spec-rl/1.7B-grpo-lenience-0.5.sh`
+   File: `training_scripts/spec-rl/1.7B-grpo-lenience-0.5.sh`
 
 ```bash
 # inside training_scripts/spec-rl/1.7B-grpo-lenience-0.5.sh
@@ -111,12 +111,12 @@ PROJECT_NAME=your-custom-project-name
 
 2. Set specl-rl GRPO main script:
 
-File: `${project_root_path}/training_scripts/train_grpo-spec-sampling.sh`
+File: `training_scripts/train_grpo-spec-sampling.sh`
 
 Set the following variables to **your own paths** and default **SPEC-RL parameters** :
 
 ```bash
-# inside training_scripts/train_grpo.sh
+# inside training_scripts/train_grpo-spec-sampling.sh
 MODEL_PATH=path-to-default-base-model-dir
 CHECKPOINT_PATH=path-to-default-save-model-path
 
