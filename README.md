@@ -22,7 +22,7 @@
 _¹ Xiamen University, ² Shopee LLM Team, ³ Institute for AI Industry Research (AIR), Tsinghua University_
 
 _<sup>+</sup> Equal Contribution_
-_<sup>*</sup>Jinsong is the corresponding author: [jssu@xmu.edu.cn](mailto:jssu@xmu.edu.cn)_
+_<sup>*</sup>Jinsong Su is the corresponding author: [jssu@xmu.edu.cn](mailto:jssu@xmu.edu.cn)_
 </div>
 
 
