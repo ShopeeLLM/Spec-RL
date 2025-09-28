@@ -27,7 +27,7 @@ _<sup>*</sup>Jinsong Su is the corresponding author: [jssu@xmu.edu.cn](mailto:js
 
 
 
-## Installation
+## 🧩 Installation
 
 Use **either** Docker (fastest) **or** a Conda environment aligned with **verl 0.5.x**.
 
@@ -44,16 +44,16 @@ Follow verl's official 0.5.x installation guide to set up the environment (PyTor
 https://verl.readthedocs.io/en/v0.5.x/start/install.html#install-dependencies
 
 
-## Training
+## 🚀 Training
 This repo ships two shell scripts under `training_scripts/`. Please **download datasets first**, then **configure paths**, then **launch**.
 
-### 1) Download code
+### 1️⃣ Download code
 
 ````
 git clone https://github.com/ShopeeLLM/Spec-RL
 ````
 
-### 2) Download datasets
+### 2️⃣ Download datasets
 
 ```bash
 bash data/download.sh
@@ -61,7 +61,7 @@ bash data/download.sh
 
 This will populate `data/` with the required files.
 
-### 3) Configure the scripts
+### 3️⃣ Configure the scripts
 
 There are **two** scripts to edit before running:
 
@@ -124,13 +124,13 @@ SPEC_DECODING=False
 BIAS=0.0
 ```
 
-### 3) Login to Weights & Biases
+### 4️⃣ Login to Weights & Biases
 
 ```bash
 wandb login
 ```
 
-### 4) Launch training
+### 5️⃣ Launch training
 
 **Vanilla GRPO baseline** (recommended first run):
 
@@ -146,3 +146,49 @@ bash training_scripts/spec-rl/1.7B-grpo-lenience-0.5.sh
 
 After the first run, monitor logs under `logs/` (and your W\&B project if enabled).
 
+
+## 🧠 Evaluation
+
+We provide evaluation scripts adapted from **[SimpleRL-Reason](https://github.com/hkust-nlp/simpleRL-reason)** for math reasoning benchmarks.
+
+### 1️⃣ Configure the scripts
+
+There are **two** files to edit before running:
+
+#### (A) eval/example.sh
+
+Configure these three paths:
+
+```bash
+PROJECT_DIR=path-to-your-base-project-dir
+CKPT_DIR=path-to-your-ckpt-to-be-evaluated
+BASE_MODEL_DIR=path-to-your-base-model
+```
+
+#### (B) eval/eval_math_nodes.sh
+
+Configure this variable:
+
+```bash
+PROJECT_DIR=path-to-your-base-project-dir
+```
+
+---
+
+### 2️⃣ Run evaluation
+
+After configuration, directly run:
+
+```bash
+bash eval/example.sh
+```
+
+This will automatically:
+- enter the evaluation directory  
+- install required dependencies  
+- and launch evaluation across multiple benchmarks
+
+
+------
+
+## 📘 Citation
