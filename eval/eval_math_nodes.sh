@@ -137,9 +137,6 @@ fi
 
 
 
-
-
-
 get_all_checkpoints() {
     local base_path="$1"
     local specific_steps="$2"
