@@ -2,17 +2,9 @@
 
 # example usage: bash eval_math.sh --run_name verl-grpo-fix-math-eval-large-reward_temp1.0_ppomicro4_Qwen2.5-14B_simplelr_math_35 --init_model Qwen2.5-14B --template qwen25-math-cot  --tp_size 1
 
-cd examples/simplelr_math_eval
-pip uninstall latex2sympy2 -y
-cd latex2sympy
-pip install -e . --use-pep517
-pip install Pebble
-pip install sympy==1.12
-pip install antlr4-python3-runtime==4.11.1
-pip install timeout-decorator
-pip install jieba
-cd ..
+PROJECT_DIR=path-to-your-base-project-dir
 
+cd ${PROJECT_DIR}/eval/simplelr_math_eval
 
 export NCCL_DEBUG=warn
 # 定义评估脚本路径
@@ -29,6 +21,7 @@ max_tokens=16000
 top_p=1
 benchmarks="gsm8k,math500,minerva_math,gaokao2023en,olympiadbench,college_math,aime24,amc23"
 output_dir="eval_results"
+wandb_project="demo-spec-rl"
 overwrite=false
 n_sampling=1
 specific_steps=""
@@ -90,6 +83,10 @@ while [[ $# -gt 0 ]]; do
             specific_steps="$2"
             shift 2
             ;;
+        --wandb_project)
+            wandb_project="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown parameter: $1"
             exit 1
@@ -105,16 +102,12 @@ if [ -z "$RUN_NAME" ] || [ -z "$INIT_MODEL_PATH" ] || [ -z "$template" ] || [ -z
 fi
 
 
-eval_script_path="sh/eval.sh"
+eval_script_path="${PROJECT_DIR}/eval/simplelr_math_eval/sh/eval.sh"
 
-HDFS_HOME=TO_BE_FILLED
+base_checkpoint_path=${RUN_NAME}
+init_model_path=${INIT_MODEL_PATH}
 
-base_checkpoint_path="${HDFS_HOME}/checkpoints/${RUN_NAME}"
-
-
-init_model_path="${HDFS_HOME}/base_models/${INIT_MODEL_PATH}"
-chmod +x sh/convert_and_evaluate_gpu_nodes.sh
-
+chmod +x ${PROJECT_DIR}/eval/simplelr_math_eval/sh/convert_and_evaluate_gpu_nodes.sh
 
 if [ "${add_step_0:-false}" = true ]; then
     done_file="$base_checkpoint_path/global_step_0/actor/huggingface/.cp_done"
@@ -226,10 +219,10 @@ fi
 
 
 
-python sh/collect_results.py \
+python ${PROJECT_DIR}/eval/simplelr_math_eval/sh/collect_results.py \
     --base_dir "$base_checkpoint_path/$output_dir" \
     --model_name $init_model_path \
-    --wandb_project "verl_math_evaluate" \
+    --wandb_project "${wandb_project}" \
     --wandb_api_key "${WANDB_API_KEY}" \
     --wandb_run_name $RUN_NAME \
     --temperature $temperature \
