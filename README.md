@@ -3,7 +3,11 @@
 </div>
 
 # SPEC-RL: Accelerating On-Policy Reinforcement Learning via Speculative Rollouts
-[📄 **Paper (PDF)**](./assets/SPEC-RL.pdf)
+<div align="center">
+  
+[📄 **Paper (PDF)**](./assets/SPEC-RL.pdf) ｜ [🌐 **Project Page**](https://bingshuailiu.github.io/Spec-RL/)
+
+</div>
 
 <div align="center">
 <img src="https://img.shields.io/badge/Version-1.0.0-blue.svg" alt="Version"> 
