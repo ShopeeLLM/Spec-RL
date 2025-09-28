@@ -10,8 +10,6 @@
 <img src="https://img.shields.io/badge/License-CC%20BY%204.0-green.svg" alt="License">
 <img src="https://img.shields.io/github/stars/ShopeeLLM/Spec-RL?color=yellow" alt="Stars">
 <img src="https://img.shields.io/github/issues/ShopeeLLM/Spec-RL?color=red" alt="Issues">
-<img src="https://img.shields.io/badge/python-3.8-purple.svg" alt="Python">
-
 
 
 **_¹ <sup>+</sup> [Bingshuai Liu](https://bingshuailiu.github.io), ¹ ³ <sup>+</sup> [Ante Wang](https://soistesimmer.github.io/), ¹ <sup>+</sup> Zijun Min,_**
