@@ -2,7 +2,7 @@
 
 # example usage: bash eval_math.sh --run_name verl-grpo-fix-math-eval-large-reward_temp1.0_ppomicro4_Qwen2.5-14B_simplelr_math_35 --init_model Qwen2.5-14B --template qwen25-math-cot  --tp_size 1
 
-PROJECT_DIR=path-to-your-base-project-dir
+PROJECT_DIR=/home/work/compass_innovation/bsliu/Spec-RL
 
 cd ${PROJECT_DIR}/eval/simplelr_math_eval
 
