@@ -5,7 +5,7 @@
 # SPEC-RL: Accelerating On-Policy Reinforcement Learning via Speculative Rollouts
 <div align="center">
   
-[📄 **Paper (PDF)**](./assets/SPEC-RL.pdf) ｜ [🌐 **Project Page**](https://bingshuailiu.github.io/Spec-RL/)
+[📄 **Paper (PDF)**](./assets/SPEC-RL.pdf) ｜ [🌐 **Project Page**](https://bingshuailiu.github.io/Spec-RL/) | 🔗 [View the report on WandB](https://wandb.ai/bingshuai-liu/spec-rl/reports/SPEC-RL-Report--VmlldzoxNDQ1MDE0OQ?accessToken=wlggqshgos8pbp7r7s6h2ib9onh9woplphhqd2tf6dx8fcw00t4fdmtpvl3aeii2)
 
 </div>
 
@@ -27,7 +27,16 @@ _<sup>+</sup> Equal Contribution_
 _<sup>*</sup>Jinsong Su is the corresponding author: [jssu@xmu.edu.cn](mailto:jssu@xmu.edu.cn)_
 </div>
 
+## 📢 News
 
+Stay tuned for our latest updates and milestones!
+
+- **[2025-09-30]** 📊 **Full Results Published on WandB**  
+  We published the full set of experiment results as a **WandB report**.  
+  🔗 [View the report on WandB](https://wandb.ai/bingshuai-liu/spec-rl/reports/SPEC-RL-Report--VmlldzoxNDQ1MDE0OQ?accessToken=wlggqshgos8pbp7r7s6h2ib9onh9woplphhqd2tf6dx8fcw00t4fdmtpvl3aeii2)
+
+- **[2025-09-28]** 🎉 **SPEC-RL Release!**  
+  Official release of SPEC-RL with 2–3× rollout acceleration and seamless integration into PPO, GRPO, and DAPO workflows. 
 
 ## 🧩 Installation
 
