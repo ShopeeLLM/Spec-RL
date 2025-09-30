@@ -198,6 +198,17 @@ This will automatically:
 - install required dependencies  
 - and launch evaluation across multiple benchmarks
 
+---
+
+## 🙏 Acknowledgement
+
+We gratefully acknowledge the open-source projects that made **SPEC-RL** possible:
+
+- 💡 **[Verl](https://github.com/volcengine/verl)** — Our reinforcement learning algorithm is implemented by extending from Verl’s RL framework, leveraging its modular design and robust PPO/GRPO/DAPO implementations.
+
+- 📘 **[SimpleRL-Reason](https://github.com/hkust-nlp/simpleRL-reason)** — Our evaluation scripts are adapted from SimpleRL-Reason, which provides comprehensive reasoning benchmarks for math and logic tasks.
+
+We also utilize **vLLM** for efficient inference and build our training upon **Qwen3** as the backbone model.
 
 ------
 
