@@ -25,6 +25,11 @@ _<sup>+</sup> Equal Contribution_
 _<sup>*</sup>Jinsong Su is the corresponding author: [jssu@xmu.edu.cn](mailto:jssu@xmu.edu.cn)_
 </div>
 
+<div align="center">
+  <img src="./assets/teaser.jpg" alt="SPEC-RL Overview" width="800">
+  <p><em>SPEC-RL achieves a 2–3× reduction in rollout time while maintaining average performance on Qwen-3-8B-Base across different algorithms (GRPO, PPO, DAPO).</em></p>
+</div>
+
 ## 📢 News
 
 Stay tuned for our latest updates and milestones!
