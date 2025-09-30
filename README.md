@@ -3,14 +3,11 @@
 </div>
 
 # SPEC-RL: Accelerating On-Policy Reinforcement Learning via Speculative Rollouts
+
 <div align="center">
   
-[📄 **Paper (PDF)**](./assets/SPEC-RL.pdf) ｜ [🌐 **Project Page**](https://bingshuailiu.github.io/Spec-RL/) | 🔗 [View the report on WandB](https://wandb.ai/bingshuai-liu/spec-rl/reports/SPEC-RL-Report--VmlldzoxNDQ1MDE0OQ?accessToken=wlggqshgos8pbp7r7s6h2ib9onh9woplphhqd2tf6dx8fcw00t4fdmtpvl3aeii2)
-
-</div>
-
-<div align="center">
-<img src="https://img.shields.io/badge/Version-1.0.0-blue.svg" alt="Version"> 
+[![Project Page](https://img.shields.io/badge/🌐-Project%20Page-brightgreen.svg)](https://bingshuailiu.github.io/Spec-RL/)
+[![arXiv](https://img.shields.io/badge/arXiv-2509.23232-b31b1b.svg)](https://arxiv.org/abs/2509.23232)
 <img src="https://img.shields.io/badge/License-CC%20BY%204.0-green.svg" alt="License">
 <img src="https://img.shields.io/github/stars/ShopeeLLM/Spec-RL?color=yellow" alt="Stars">
 <img src="https://img.shields.io/github/issues/ShopeeLLM/Spec-RL?color=red" alt="Issues">
