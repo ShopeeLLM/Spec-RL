@@ -11,6 +11,8 @@
 <img src="https://img.shields.io/badge/License-CC%20BY%204.0-green.svg" alt="License">
 <img src="https://img.shields.io/github/stars/ShopeeLLM/Spec-RL?color=yellow" alt="Stars">
 <img src="https://img.shields.io/github/issues/ShopeeLLM/Spec-RL?color=red" alt="Issues">
+[![📊 WandB Report](https://img.shields.io/badge/WandB-Report-orange.svg?logo=weightsandbiases&logoColor=white)](https://wandb.ai/bingshuai-liu/spec-rl/reports/SPEC-RL-Report--VmlldzoxNDQ1MDE0OQ?accessToken=wlggqshgos8pbp7r7s6h2ib9onh9woplphhqd2tf6dx8fcw00t4fdmtpvl3aeii2)
+
 
 
 **_¹ <sup>+</sup> [Bingshuai Liu](https://bingshuailiu.github.io), ¹ ³ <sup>+</sup> [Ante Wang](https://soistesimmer.github.io/), ¹ <sup>+</sup> Zijun Min,_**
