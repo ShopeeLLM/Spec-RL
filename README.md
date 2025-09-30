@@ -214,11 +214,13 @@ We also utilize **vLLM** for efficient inference and build our training upon **Q
 ## 📘 Citation
 If you find **SPEC-RL** helpful, please cite:
 ```bibtex
-@misc{spec_rl_2025,
-  title         = {SPEC-RL: Accelerating On-Policy Reinforcement Learning via Speculative Rollouts},
-  author        = {Liu, Bingshuai and Wang, Ante and Min, Zijun and Yao, Liang and Zhang, Haibo and Liu, Yang and Zeng, Anxiang and Su, Jinsong},
-  year          = {2025},
-  howpublished  = {\url{https://github.com/ShopeeLLM/Spec-RL}},
-  note          = {Accessed: 2025-09-28}
+@misc{liu2025specrlacceleratingonpolicyreinforcement,
+      title={SPEC-RL: Accelerating On-Policy Reinforcement Learning via Speculative Rollouts}, 
+      author={Bingshuai Liu and Ante Wang and Zijun Min and Liang Yao and Haibo Zhang and Yang Liu and Anxiang Zeng and Jinsong Su},
+      year={2025},
+      eprint={2509.23232},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+      url={https://arxiv.org/abs/2509.23232}, 
 }
 ```
