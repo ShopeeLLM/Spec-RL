@@ -287,6 +287,7 @@ class vLLMRollout(BaseRollout):
 
         do_sample = prompts.meta_info.get("do_sample", True)
         is_validate = prompts.meta_info.get("validate", False)
+        spec_decoding = prompts.meta_info.get("spec_decoding", False)
         if not do_sample:
             kwargs = {
                 "best_of": 1,
@@ -316,12 +317,48 @@ class vLLMRollout(BaseRollout):
 
         # users can customize different sampling_params at different run
         with self.update_sampling_params(**kwargs):
-            outputs = self.inference_engine.generate(
-                prompts=vllm_inputs,  # because we have already convert it to prompt token id
-                sampling_params=self.sampling_params,
-                lora_request=lora_requests,
-                use_tqdm=False,
-            )
+            if spec_decoding:
+                base_sp = deepcopy(self.sampling_params)
+
+                # --- Read the per-request max_new_tokens list (already written into meta_info in the upstream trainer) ---
+                per_req = prompts.non_tensor_batch['per_request_max_new_tokens']
+
+                # vLLM support per-request max_tokens
+                sampling_params_arg = base_sp
+                if per_req is not None:
+                    # compatible with numpy/list/torch etc
+                    if isinstance(per_req, torch.Tensor):
+                        per_req_list = per_req.tolist()
+                    else:
+                        per_req_list = list(per_req)
+                    assert len(per_req_list) == len(vllm_inputs), \
+                        f"per_request_max_new_tokens length {len(per_req_list)} != batch {len(vllm_inputs)}"
+
+                    sps = []
+                    for m in per_req_list:
+                        sp = deepcopy(base_sp)
+                        # vLLM new interface field called max_tokens (old version maybe max_new_tokens, do a fallback)
+                        m_int = max(1, int(m))  # at least 1, avoid 0 trigger unnecessary behavior
+                        if hasattr(sp, "max_tokens"):
+                            sp.max_tokens = m_int
+                        else:
+                            sp.max_new_tokens = m_int
+                        sps.append(sp)
+                    sampling_params_arg = sps
+
+                    outputs = self.inference_engine.generate(
+                        prompts=vllm_inputs,  # because we have already convert it to prompt token id
+                        sampling_params=sampling_params_arg,
+                        lora_request=lora_requests,
+                        use_tqdm=False,
+                    )
+            else:
+                outputs = self.inference_engine.generate(
+                    prompts=vllm_inputs,  # because we have already convert it to prompt token id
+                    sampling_params=self.sampling_params,
+                    lora_request=lora_requests,
+                    use_tqdm=False,
+                )
 
             # TODO(sgm): disable logprob when recompute_log_prob is enable
             # if n = 1: (bs, response_length) ; if n > 1: (bs * n, response_length)
