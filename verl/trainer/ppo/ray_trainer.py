@@ -1485,7 +1485,7 @@ class RayPPOTrainer:
                                     last_pos_need = prompt_pos_ids[nr, -1].unsqueeze(1)
                                     final_pos[nr, P:P + R] = last_pos_need + delta
 
-                                    final_inputs[:, P:P + R] = final_resp
+                                final_inputs[:, P:P + R] = final_resp
 
                                 # assemble final DataProto
                                 merged = {
