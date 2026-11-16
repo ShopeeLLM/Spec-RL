@@ -246,6 +246,8 @@ def build_ctx(p_ids, p_msk, p_pos,
     R    = response_ids.shape[1]
     k_vec = cut_idx.clamp(min=0, max=R)          # [N]
     max_k = int(k_vec.max().item()) if N > 0 else 0
+    if max_k == 0:
+        return p_ids.clone(), p_msk.clone(), p_pos.clone(), max_k
     ctx_len = P + max_k
 
     # calculate actual length of each prompt (right-aligned non-pad segment)
